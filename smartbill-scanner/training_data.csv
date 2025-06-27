@@ -1,0 +1,26 @@
+item,category
+Milk,Food
+Bread,Food
+Eggs,Food
+Rice,Food
+Apple,Food
+Banana,Food
+Chicken,Food
+T-Shirt,Shopping
+Jeans,Shopping
+Shoes,Shopping
+Mobile Phone,Electronics
+Headphones,Electronics
+Charger,Electronics
+Toothpaste,Personal Care
+Shampoo,Personal Care
+Soap,Personal Care
+Electricity Bill,Utility
+Water Bill,Utility
+Internet Bill,Utility
+GST,Tax
+SGST,Tax
+CGST,Tax
+IGST,Tax
+Delivery Charge,Service
+Packing Charge,Service 

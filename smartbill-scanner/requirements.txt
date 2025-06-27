@@ -1,0 +1,6 @@
+pytesseract
+opencv-python
+pillow
+pandas
+scikit-learn
+streamlit 
