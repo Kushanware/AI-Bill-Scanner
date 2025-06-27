@@ -3,4 +3,7 @@ opencv-python
 pillow
 pandas
 scikit-learn
-streamlit 
+streamlit
+requests
+streamlit-authenticator
+PyYAML 

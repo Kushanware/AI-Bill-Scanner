@@ -1,6 +1,6 @@
 import streamlit as st
-import uuid
-from ocr_utils import extract_text_from_image
+import streamlit_authenticator as stauth
+from ocr_utils import extract_text_from_image, parse_bill_text
 from model import load_model_and_vectorizer, predict_category
 from tips import generate_tips
 from db_utils import create_table, save_scan, fetch_user_scans
@@ -61,56 +61,109 @@ with st.sidebar:
 # Create DB table if not exists
 create_table()
 
-# Simple session-based user_id (for demo; use real login for production)
-if "user_id" not in st.session_state:
-    st.session_state["user_id"] = str(uuid.uuid4())
-current_user_id = st.session_state["user_id"]
+# OAuth configuration for GitHub
+oauth_config = {
+    "credentials": {
+        "oauth": {
+            "github": {
+                "client_id": st.secrets["github_client_id"],
+                "client_secret": st.secrets["github_client_secret"],
+            }
+        }
+    },
+    "cookie": {
+        "expiry_days": 1,
+        "key": "a-very-random-signature-key-1234567890",  # Change this to a random string for security!
+        "name": "aibillscanner_cookie"
+    },
+    "preauthorized": {
+        "emails": []
+    }
+}
 
-st.markdown("---")
-st.header("Upload Your Bill")
+authenticator = stauth.Authenticate(
+    None,  # No user/passwords, using OAuth
+    oauth_config['cookie']['name'],
+    oauth_config['cookie']['key'],
+    oauth_config['cookie']['expiry_days'],
+    oauth_config['credentials'],
+    oauth_config['preauthorized']
+)
 
-uploaded_file = st.file_uploader("Upload your bill/receipt image", type=["jpg", "png", "jpeg"])
+name, authentication_status, username = authenticator.login("Login", "main")
 
-if uploaded_file:
-    text = extract_text_from_image(uploaded_file)
-    items, total, date = extract_fields(text)
-    
-    st.success("✅ Bill scanned successfully!")
-    st.markdown("---")
-    st.subheader("🧾 Extracted Items:")
-    st.table(items)
-    st.subheader("💰 Total Amount:")
-    st.info(f"₹{total}")
-    st.subheader("📅 Bill Date:")
-    st.info(date)
+if authentication_status:
+    st.sidebar.success(f"Welcome, {name or username}!")
+    st.sidebar.title("SmartBill Scanner")
+    st.sidebar.info("Upload your bill and get instant results!")
 
-    st.markdown("---")
-    st.subheader("🏷️ Predicted Categories:")
-    spending = {}
-    model, vectorizer = load_model_and_vectorizer()
-    for item, amount in items:
-        cat = predict_category(item, model, vectorizer)
-        st.write(f"<b>{item}</b> → <span style='color: #2b9348;'>{cat}</span>", unsafe_allow_html=True)
-        spending[cat] = spending.get(cat, 0) + amount
+    st.title("SmartBill Scanner")
+    st.header("Upload Your Bill")
 
-    st.markdown("---")
-    st.subheader("💡 Smart Tips:")
-    tips = generate_tips(spending)
-    for tip in tips:
-        st.success(tip)
+    api_key = st.secrets["ocr_space_api_key"] if "ocr_space_api_key" in st.secrets else "K86392130988957"
 
-    # Save scan to DB
-    save_scan(current_user_id, items, total, spending)
+    if "history" not in st.session_state:
+        st.session_state["history"] = []
 
-st.markdown("---")
-st.header("Your Scan History")
-scans = fetch_user_scans(current_user_id)
-if scans:
-    for scan in scans[::-1]:  # Show latest first
-        st.write(f"**Date:** {scan[2]} | **Total:** ₹{scan[4]}")
-        st.json(__import__('json').loads(scan[3]))  # items
+    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+    if uploaded_file is not None:
+        text = extract_text_from_image(uploaded_file, api_key)
+        items, total, date = parse_bill_text(text)
+        st.session_state["history"].append({"date": date, "total": total, "items": items, "text": text})
+
         st.markdown("---")
-else:
-    st.info("No scans yet. Upload a bill to get started!")
+        st.subheader("Extracted Text:")
+        st.write(text)
 
-st.info("Tip: On your phone, tap 'Upload' and select 'Camera' to take a live photo of your bill.") 
+        st.markdown("---")
+        st.subheader("Parsed Bill Data")
+        st.write(f"**Date:** {date}")
+        st.write(f"**Total:** {total}")
+        st.write("**Items:**")
+        for item in items:
+            st.write(f"- {item}")
+
+        st.markdown("---")
+        st.subheader("🏷️ Predicted Categories:")
+        spending = {}
+        model, vectorizer = load_model_and_vectorizer()
+        for item, amount in items:
+            cat = predict_category(item, model, vectorizer)
+            st.write(f"<b>{item}</b> → <span style='color: #2b9348;'>{cat}</span>", unsafe_allow_html=True)
+            spending[cat] = spending.get(cat, 0) + amount
+
+        st.markdown("---")
+        st.subheader("💡 Smart Tips:")
+        tips = generate_tips(spending)
+        for tip in tips:
+            st.success(tip)
+
+        # Save scan to DB
+        save_scan(current_user_id, items, total, spending)
+
+    st.markdown("---")
+    st.header("Your Scan History")
+    scans = fetch_user_scans(current_user_id)
+    if scans:
+        for scan in scans[::-1]:  # Show latest first
+            st.write(f"**Date:** {scan[2]} | **Total:** ₹{scan[4]}")
+            st.json(__import__('json').loads(scan[3]))  # items
+            st.markdown("---")
+    else:
+        st.info("No scans yet. Upload a bill to get started!")
+
+    st.info("Tip: On your phone, tap 'Upload' and select 'Camera' to take a live photo of your bill.")
+
+    if st.session_state["history"]:
+        st.markdown("---")
+        st.subheader("Scan History (this session)")
+        for i, entry in enumerate(st.session_state["history"], 1):
+            st.write(f"**Scan {i}:** Date: {entry['date']}, Total: {entry['total']}")
+            st.write("Items:")
+            for item in entry["items"]:
+                st.write(f"- {item}")
+            st.write("Text:")
+            st.write(entry["text"])
+            st.markdown("---")
+else:
+    st.warning("Please log in with GitHub to use the app.") 
