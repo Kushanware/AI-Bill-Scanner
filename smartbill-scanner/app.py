@@ -1,37 +1,21 @@
 import streamlit as st
-import streamlit_authenticator as stauth
+import streamlit_oauth
 from ocr_utils import extract_text_from_image, parse_bill_text
 from model import load_model_and_vectorizer, predict_category
 from tips import generate_tips
 from db_utils import create_table, save_scan, fetch_user_scans
 import re
-import base64
 import os
 from datetime import datetime
+from streamlit_oauth import OAuth2Component
 
-# Helper: Improved extract_fields with skip logic
-def extract_fields(text):
-    items = []
-    total = 0
-    date = re.findall(r'\d{2}/\d{2}/\d{4}', text)
-    lines = text.split('\n')
-    skip_keywords = ['gst', 'sgst', 'cgst', 'igst', 'tax', 'total', 'packing', 'delivery']
-    for line in lines:
-        if any(char.isdigit() for char in line):
-            if any(kw in line.lower() for kw in skip_keywords):
-                continue  # Skip tax and service lines
-            match = re.search(r'(.*?)(\d+\.\d{2})', line)
-            if match:
-                item = match.group(1).strip()
-                amount = float(match.group(2))
-                items.append((item, amount))
-                total += amount
-    return items, total, date[0] if date else "Unknown"
+# --- GitHub OAuth Credentials (hardcoded) ---
+GITHUB_CLIENT_ID = "Ov23liXdCJTnZDqEdqLp"
+GITHUB_CLIENT_SECRET = "b78e8820f11bfc7402978c9aa33d3c85b94319d2"
 
 # Set page config
 st.set_page_config(page_title="SmartBill Scanner", page_icon="📷", layout="centered")
 
-# Add a custom header image (optional, you can replace the URL)
 def add_header_logo():
     st.markdown(
         """
@@ -61,46 +45,49 @@ with st.sidebar:
 # Create DB table if not exists
 create_table()
 
-# OAuth configuration for GitHub
-oauth_config = {
-    "credentials": {
-        "oauth": {
-            "github": {
-                "client_id": st.secrets["github_client_id"],
-                "client_secret": st.secrets["github_client_secret"],
-            }
-        }
-    },
-    "cookie": {
-        "expiry_days": 1,
-        "key": "a-very-random-signature-key-1234567890",  # Change this to a random string for security!
-        "name": "aibillscanner_cookie"
-    },
-    "preauthorized": {
-        "emails": []
-    }
-}
+# --- GitHub OAuth Login ---
+user_name = None
+user_email = None
+is_authenticated = False
 
-authenticator = stauth.Authenticate(
-    None,  # No user/passwords, using OAuth
-    oauth_config['cookie']['name'],
-    oauth_config['cookie']['key'],
-    oauth_config['cookie']['expiry_days'],
-    oauth_config['credentials'],
-    oauth_config['preauthorized']
+# Initialize the component
+oauth2 = OAuth2Component(
+    client_id=GITHUB_CLIENT_ID,
+    client_secret=GITHUB_CLIENT_SECRET,
+    authorize_endpoint="https://github.com/login/oauth/authorize",
+    token_endpoint="https://github.com/login/oauth/access_token",
 )
 
-name, authentication_status, username = authenticator.login("Login", "main")
+# Call the component in your Streamlit app
+result = oauth2.authorize_button(
+    name="Login with GitHub",
+    redirect_uri="http://localhost:8501/",
+    scope="user:email",
+    key="github"
+)
 
-if authentication_status:
-    st.sidebar.success(f"Welcome, {name or username}!")
+if result and "token" in result:
+    # Use the access token to get user info
+    access_token = result["token"]["access_token"]
+    import requests
+    headers = {"Authorization": f"token {access_token}"}
+    resp = requests.get("https://api.github.com/user", headers=headers)
+    if resp.ok:
+        user_info = resp.json()
+        user_email = user_info.get("email", "")
+        user_name = user_info.get("login", "GitHub User")
+        is_authenticated = True
+
+if is_authenticated:
+    st.sidebar.success(f"Welcome, {user_name}!")
     st.sidebar.title("SmartBill Scanner")
     st.sidebar.info("Upload your bill and get instant results!")
 
     st.title("SmartBill Scanner")
     st.header("Upload Your Bill")
 
-    api_key = st.secrets["ocr_space_api_key"] if "ocr_space_api_key" in st.secrets else "K86392130988957"
+    api_key = "K86392130988957"
+    current_user_id = user_name
 
     if "history" not in st.session_state:
         st.session_state["history"] = []
