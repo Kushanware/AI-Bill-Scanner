@@ -1,9 +1,10 @@
 pytesseract
-opencv-python
+opencv-python-headless
 pillow
 pandas
 scikit-learn
 streamlit
 requests
 streamlit-authenticator
+streamlit-oauth
 PyYAML 

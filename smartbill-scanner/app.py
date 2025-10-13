@@ -1,5 +1,5 @@
 import streamlit as st
-import streamlit_oauth
+from streamlit_oauth import OAuth2Component
 from ocr_utils import extract_text_from_image, parse_bill_text
 from model import load_model_and_vectorizer, predict_category
 from tips import generate_tips
@@ -61,7 +61,7 @@ oauth2 = OAuth2Component(
 # Call the component in your Streamlit app
 result = oauth2.authorize_button(
     name="Login with GitHub",
-    redirect_uri="http://localhost:8501/",
+    redirect_uri="https://aibillscanner.streamlit.app/",
     scope="user:email",
     key="github"
 )
