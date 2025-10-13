@@ -6,4 +6,5 @@ scikit-learn
 streamlit
 requests
 streamlit-authenticator
+streamlit-oauth
 PyYAML 
