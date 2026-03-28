@@ -1,10 +1,5 @@
-<<<<<<< HEAD
 streamlit>=1.42,<2.0
 altair>=5.2,<6.0
-=======
-streamlit==1.19.0
-altair==4.2.2
->>>>>>> 4a75b64f56612bdf874aa723b17ec8440f80fd85
 
 pytesseract
 opencv-python-headless
@@ -12,10 +7,4 @@ pillow
 pandas
 scikit-learn
 requests
-streamlit-authenticator
-streamlit-oauth
-<<<<<<< HEAD
 PyYAML
-=======
-PyYAML
->>>>>>> 4a75b64f56612bdf874aa723b17ec8440f80fd85
