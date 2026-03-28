@@ -1,10 +1,12 @@
+streamlit>=1.42,<2.0
+altair>=5.2,<6.0
+
 pytesseract
 opencv-python-headless
 pillow
 pandas
 scikit-learn
-streamlit
 requests
 streamlit-authenticator
 streamlit-oauth
-PyYAML 
+PyYAML
