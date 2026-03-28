@@ -41,3 +41,4 @@ def fetch_user_scans(user_id):
     rows = c.fetchall()
     conn.close()
     return rows 
+
